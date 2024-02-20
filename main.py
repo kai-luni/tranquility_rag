@@ -1,3 +1,4 @@
+import json
 import time
 from flask import Flask, request
 import msal
@@ -58,17 +59,57 @@ def get_last_message_of_chat(access_token, chat_id):
     response.raise_for_status()  # This will raise an exception for HTTP error responses
     return response.json()['value']
 
+def post_message_to_chat(access_token, chat_id, message_content):
+    """
+    Post a message to a specific chat in Microsoft Teams.
+
+    Args:
+        access_token (str): The access token to authenticate the request.
+        chat_id (str): The ID of the chat where the message will be posted.
+        message_content (str): The content of the message to post.
+
+    Returns:
+        dict: A dictionary representing the posted message if successful.
+    """
+    url = f"https://graph.microsoft.com/v1.0/chats/{chat_id}/messages"
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+    }
+    body = {
+        "body": {
+            "content": message_content
+        }
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(body))
+    
+    response.raise_for_status()  # This will raise an exception for HTTP error responses
+    return response.json()
+
 def main():
     token_acquisition = TokenAcquisition(TENANT_ID, CLIENT_ID, CLIENT_SECRET, SCOPES)
     access_token = token_acquisition.acquire_token()
     print("Access token found:", access_token)
-    
-    # Server shutdown is handled in the authorized route once the token is acquired
 
-    # for chat in get_chats(access_token):
-    #     print(f"Chat Topic: {chat['topic']} Id: {chat['id']}, Chat Type: {chat['chatType']}")
-    result = get_last_message_of_chat(access_token, "19:00c83d8a7ff4451abdd883041d01f9e4@thread.v2")
-    print(result[0]['body']['content'])
+    chat_id = "19:00c83d8a7ff4451abdd883041d01f9e4@thread.v2"
+    result = get_last_message_of_chat(access_token, chat_id)
+
+    if result:
+        # Extract the message content and remove HTML tags for simplicity
+        message_content = result[0]['body']['content'].replace("<p>", "").replace("</p>", "").strip()
+        
+        # Convert the message to lowercase and check if it starts with 'phatgpt'
+        if message_content.lower().startswith('phatgpt'):
+            # Modify the message or create a new message as needed
+            new_message = message_content.lower()  # Example modification, adjust as needed
+            
+            # Post the modified or new message back to the chat
+            post_message_to_chat(access_token, chat_id, new_message)
+            print("Message posted successfully.")
+        else:
+            print("The last message does not start with 'phatgpt'.")
+    else:
+        print("No messages found in the chat.")
 
 if __name__ == "__main__":
     main()
